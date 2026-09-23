@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ojik Chatbot</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f2f4f7;
+    }
+
+    .app {
+      max-width: 800px;
+      margin: 30px auto;
+      background: white;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 5px 25px #0002;
+    }
+
+    header {
+      padding: 20px;
+      color: white;
+      background: #111827;
+    }
+
+    #chat {
+      height: 500px;
+      padding: 20px;
+      overflow-y: auto;
+    }
+
+    .message {
+      margin: 12px 0;
+      padding: 12px 16px;
+      border-radius: 12px;
+      white-space: pre-wrap;
+    }
+
+    .user {
+      margin-left: 20%;
+      background: #dbeafe;
+    }
+
+    .bot {
+      margin-right: 20%;
+      background: #f3f4f6;
+    }
+
+    .controls {
+      display: flex;
+      gap: 8px;
+      padding: 15px;
+      border-top: 1px solid #ddd;
+    }
+
+    select, input, button {
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+
+    select {
+      width: 190px;
+    }
+
+    input[type="text"] {
+      flex: 1;
+    }
+
+    button {
+      color: white;
+      background: #2563eb;
+      cursor: pointer;
+    }
+
+    #preview {
+      max-width: 150px;
+      display: none;
+      margin: 10px 15px;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h2>Ojik Chatbot</h2>
+      <small>Chatbot AI dengan beberapa model LLM</small>
+    </header>
+
+    <div id="chat"></div>
+
+    <img id="preview">
+
+    <div class="controls">
+      <select id="model">
+        <option value="gemini-pro">Gemini 3.1 Pro</option>
+        <option value="gemini-flash">Gemini 3.8 Flash</option>
+        <option value="gpt-luna">GPT 5.6 Luna</option>
+        <option value="gpt-terra">GPT 5.6 Terra</option>
+      </select>
+
+      <input id="message" type="text" placeholder="Tulis pesan..." />
+
+      <input id="image" type="file" accept="image/*">
+
+      <button onclick="sendMessage()">Kirim</button>
+    </div>
+  </div>
+
+  <script>
+    let imageData = null;
+
+    const imageInput = document.getElementById("image");
+    const preview = document.getElementById("preview");
+
+    imageInput.addEventListener("change", () => {
+      const file = imageInput.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+
+      reader.onload = () => {
+        imageData = reader.result;
+        preview.src = imageData;
+        preview.style.display = "block";
+      };
+
+      reader.readAsDataURL(file);
+    });
+
+    function addMessage(text, type) {
+      const chat = document.getElementById("chat");
+      const div = document.createElement("div");
+
+      div.className = `message ${type}`;
+      div.textContent = text;
+
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    async function sendMessage() {
+      const messageInput = document.getElementById("message");
+      const model = document.getElementById("model").value;
+      const message = messageInput.value.trim();
+
+      if (!message && !imageData) return;
+
+      addMessage(message || "Menganalisis gambar...", "user");
+
+      messageInput.value = "";
+
+      const loading = document.createElement("div");
+      loading.className = "message bot";
+      loading.textContent = "Sedang berpikir...";
+      document.getElementById("chat").appendChild(loading);
+
+      try {
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            model,
+            message,
+            image: imageData
+          })
+        });
+
+        const data = await response.json();
+        loading.remove();
+
+        if (!response.ok) {
+          addMessage(data.error || "Terjadi kesalahan.", "bot");
+          return;
+        }
+
+        addMessage(data.reply, "bot");
+      } catch (error) {
+        loading.remove();
+        addMessage("Gagal menghubungi server.", "bot");
+      }
+
+      imageData = null;
+      preview.style.display = "none";
+      imageInput.value = "";
+    }
+  </script>
+</body>
+</html>
